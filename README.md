@@ -75,13 +75,17 @@ QueryMyPDF/
 ## 📸 Screenshots
 
 ### 📄 PDF Uploading Section
-![PDF Upload](assets/pdf_upload.png)
+1.
+  ![PDF Upload](assets/PDF_loader.png)
+2.
+  ![PDF Upload](assets/PDF_loader2.png)
 
-### 🤖 AI Response Output
-![Chat Answer](assets/chat_response.png)
+### 🤖 AI Response Output alongwith Source Doc
+1.
+  ![Source Docs](assets/source_doc.png),![Chat Answer](assets/response.png)
+2.
+  ![Source Docs](assets/source_doc1.png),![Chat Answer](assets/response1.png)
 
-### 📌 Source Document Viewer
-![Source Docs](assets/source_documents.png)
 
 ---
 
