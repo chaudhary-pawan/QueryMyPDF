@@ -82,8 +82,11 @@ QueryMyPDF/
 
 ### 🤖 AI Response Output alongwith Source Doc
 1.
-  ![Source Docs](assets/source_doc.png),![Chat Answer](assets/response.png)
-2.
+  Source
+  ![Source Docs](assets/source_doc.png)
+  Response
+  ![Chat Answer](assets/response.png)
+3.
   ![Source Docs](assets/source_doc1.png),![Chat Answer](assets/response1.png)
 
 
