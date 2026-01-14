@@ -9,7 +9,7 @@ Upload PDFs → Ask questions → Get intelligent answers —
 
 ## 🔥 Powered By
 
-- **Ollama (Llama3 Local LLM)**
+- **Ollama (Llama3 Local LLM) - Machine Inference**
 - **LangChain**
 - **FAISS Vector Store**
 - **HuggingFace Embeddings (all-MiniLM-L6-v2)**
