@@ -10,7 +10,11 @@ class RAGChatbot:
 
     def __init__(self):
         # local llama3 model, no API needed
-        self.llm = Ollama(model="llama3")
+        self.llm = Ollama(
+            model="llama3.2",
+            num_predict=1024,   # max output tokens (increase for longer answers)
+            temperature=0.1,    # low = more factual, less creative
+        )
 
         # free offline embeddings
         self.embeddings = HuggingFaceEmbeddings(
@@ -54,14 +58,22 @@ class RAGChatbot:
         context = "\n\n".join([d.page_content for d in docs])
 
         prompt = f"""
-You are a helpful assistant.
-Here is retrieved context from PDF:
+You are an expert research assistant. Your job is to answer questions strictly based on the provided document context below.
 
+RULES:
+- Answer ONLY using information found in the context. Do NOT use outside knowledge.
+- If the context contains the answer, provide a detailed, well-structured response with specific facts, numbers, or quotes from the context.
+- If the context does NOT contain enough information to answer, clearly say: "The provided document does not contain enough information to answer this question."
+- Do NOT hallucinate or guess. Be precise.
+
+---
+DOCUMENT CONTEXT:
 {context}
+---
 
-Question: {question}
+QUESTION: {question}
 
-Provide a clear answer:
+ANSWER:
 """
 
         return self.llm(prompt)
