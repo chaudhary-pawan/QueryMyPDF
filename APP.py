@@ -66,7 +66,7 @@ html, body, [class*="css"] {
     background: linear-gradient(90deg, #059669, #10b981);
     color: white;
     font-weight: 600;
-    font-size: 2.05rem;
+    font-size: 1.50rem;
     padding: 0.45rem 1.2rem;
     border-radius: 999px;
     margin: 0.8rem 0;
@@ -76,7 +76,7 @@ html, body, [class*="css"] {
     background: linear-gradient(90deg, #6366f1, #8b5cf6);
     color: white;
     font-weight: 600;
-    font-size: 2.05rem;
+    font-size: 1.50rem;
     padding: 0.45rem 1.2rem;
     border-radius: 999px;
     margin: 0.8rem 0;
@@ -96,7 +96,7 @@ html, body, [class*="css"] {
     padding: 1.1rem 1.5rem;
     border-radius: 18px 18px 4px 18px;
     max-width: 78%;
-    font-size: 2.2rem;
+    font-size: 1.50rem;
     box-shadow: 0 4px 15px rgba(99,102,241,0.4);
 }
 .bubble-ai {
@@ -107,7 +107,7 @@ html, body, [class*="css"] {
     padding: 1.2rem 1.6rem;
     border-radius: 18px 18px 18px 4px;
     max-width: 82%;
-    font-size: 2.2rem;
+    font-size: 1.50rem;
     backdrop-filter: blur(8px);
     box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     line-height: 1.85;
@@ -128,7 +128,7 @@ html, body, [class*="css"] {
     border-radius: 14px !important;
     color: #f1f5f9 !important;
     padding: 0.9rem 1.2rem !important;
-    font-size: 2.2rem !important;
+    font-size: 1.50rem !important;
     transition: border-color 0.2s;
 }
 .stTextInput > div > div > input:focus {
