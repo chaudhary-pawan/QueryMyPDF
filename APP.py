@@ -1,5 +1,13 @@
+import uuid
 import streamlit as st
-from RAG_backend import RAGChatbot
+from RAG_backend import (
+    ingest_pdf,
+    chatbot,
+    retrieve_all_threads,
+    thread_has_document,
+    thread_document_metadata,
+)
+from langchain_core.messages import HumanMessage
 
 # ─── Page Config ────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -122,16 +130,16 @@ html, body, [class*="css"] {
 }
 
 /* ── Input area ── */
-.stTextInput > div > div > input {
-    background: rgba(255,255,255,0.07) !important;
+.stTextInput input {
+    background: rgba(255,255,255,0.9) !important;
     border: 1.5px solid rgba(167,139,250,0.35) !important;
     border-radius: 14px !important;
-    color: #f1f5f9 !important;
+    color: #000000 !important;
     padding: 0.9rem 1.2rem !important;
     font-size: 1.50rem !important;
     transition: border-color 0.2s;
 }
-.stTextInput > div > div > input:focus {
+.stTextInput input:focus {
     border-color: #a78bfa !important;
     box-shadow: 0 0 0 3px rgba(167,139,250,0.2) !important;
 }
@@ -194,17 +202,22 @@ hr { border-color: rgba(255,255,255,0.08) !important; }
 st.markdown("""
 <div class="hero">
     <h1>📄 QueryMyPDF</h1>
-    <p>Drop any PDF. Ask anything. Get instant AI-powered answers powered by Gemini.</p>
+    <p>Drop any PDF. Ask anything. Get instant AI-powered answers.</p>
 </div>
 """, unsafe_allow_html=True)
 
 # ─── Init session state ───────────────────────────────────────────────────────
+if "thread_id" not in st.session_state:
+    st.session_state.thread_id = str(uuid.uuid4())
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
-if "rag_ready" not in st.session_state:
-    st.session_state.rag_ready = False
-if "rag" not in st.session_state:
-    st.session_state.rag = None
+if "pdf_ready" not in st.session_state:
+    st.session_state.pdf_ready = False
+if "pdf_meta" not in st.session_state:
+    st.session_state.pdf_meta = {}
+
+thread_id = st.session_state.thread_id
+config = {"configurable": {"thread_id": thread_id}}
 
 # ─── Layout: two columns ─────────────────────────────────────────────────────
 left, right = st.columns([1.1, 1.9], gap="large")
@@ -213,50 +226,42 @@ with left:
     st.markdown('<div class="section-label">📂 Upload Documents</div>', unsafe_allow_html=True)
     st.markdown('<div class="upload-card">', unsafe_allow_html=True)
 
-    # ── Gemini API Key input ──
-    api_key = st.text_input(
-        "🔑 Gemini API Key",
-        type="password",
-        placeholder="Paste your Google Gemini API key here",
-        help="Get your free key at https://aistudio.google.com/app/apikey",
-    )
-
-    uploaded_files = st.file_uploader(
-        "Drag & drop PDFs here",
+    uploaded_file = st.file_uploader(
+        "Drag & drop a PDF here",
         type="pdf",
-        accept_multiple_files=True,
+        accept_multiple_files=False,
         label_visibility="collapsed"
     )
 
-    if uploaded_files:
-        st.markdown(f'<div class="pill-info">📎 {len(uploaded_files)} file(s) selected</div>', unsafe_allow_html=True)
+    if uploaded_file:
+        st.markdown(f'<div class="pill-info">📎 {uploaded_file.name}</div>', unsafe_allow_html=True)
 
         if st.button("⚡ Build Knowledge Base"):
-            if not api_key.strip():
-                st.error("Please enter your Gemini API key first.")
-                st.stop()
-            rag = RAGChatbot(api_key=api_key.strip())
-            all_docs = []
-
-            with st.spinner("📘 Reading PDFs..."):
-                for f in uploaded_files:
-                    all_docs.extend(rag.load_pdf(f))
-
-            with st.spinner("🔍 Indexing vectors..."):
-                rag.create_rag_pipeline(all_docs)
-
-            st.session_state.rag = rag
-            st.session_state.rag_ready = True
+            with st.spinner("📘 Reading & indexing PDF..."):
+                meta = ingest_pdf(
+                    file_bytes=uploaded_file.read(),
+                    thread_id=thread_id,
+                    filename=uploaded_file.name,
+                )
+            st.session_state.pdf_ready = True
+            st.session_state.pdf_meta = meta
             st.session_state.chat_history = []
             st.rerun()
     else:
-        st.markdown('<p style="color:#475569;font-size:1.50rem;margin-top:0.5rem;">Upload one or more PDF files to get started.</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color:#475569;font-size:1.50rem;margin-top:0.5rem;">Upload a PDF file to get started.</p>', unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    if st.session_state.rag_ready:
+    if st.session_state.pdf_ready:
+        meta = st.session_state.pdf_meta
         st.markdown('<div class="pill-success">✅ Knowledge base ready</div>', unsafe_allow_html=True)
-
+        st.markdown(
+            f'<p style="color:#64748b;font-size:1.1rem;">'
+            f'📄 {meta.get("filename","?")} &nbsp;·&nbsp; '
+            f'{meta.get("documents","?")} pages &nbsp;·&nbsp; '
+            f'{meta.get("chunks","?")} chunks</p>',
+            unsafe_allow_html=True
+        )
         st.markdown("---")
         if st.button("🗑️ Clear Chat"):
             st.session_state.chat_history = []
@@ -274,10 +279,10 @@ with left:
         font-size: 1.05rem;
         line-height: 2;
     ">
-        ✨ <b style="color:#94a3b8">Gemini 1.5 Flash LLM</b><br>
-        🔢 <b style="color:#94a3b8">Gemini Embeddings</b><br>
+        🧠 <b style="color:#94a3b8">Gemini 2.5 Flash</b><br>
         📦 <b style="color:#94a3b8">FAISS Vector Search</b><br>
-        📄 <b style="color:#94a3b8">PDFPlumber Document Loader</b>
+        🔗 <b style="color:#94a3b8">LangGraph Agent</b><br>
+        🌐 <b style="color:#94a3b8">Google Embeddings</b>
     </div>
     """, unsafe_allow_html=True)
 
@@ -314,7 +319,7 @@ with right:
         """, unsafe_allow_html=True)
 
     # ── Input area ──
-    if st.session_state.rag_ready:
+    if st.session_state.pdf_ready:
         st.markdown("<br>", unsafe_allow_html=True)
         question = st.text_input(
             "Ask a question",
@@ -327,37 +332,23 @@ with right:
             if not question.strip():
                 st.warning("Please enter a question.")
             else:
-                # Stream tokens live — user sees output as it's generated
-                with st.chat_message("assistant"):
-                    answer = st.write_stream(
-                        st.session_state.rag.ask_stream(None, question)
+                with st.spinner("🤔 Thinking..."):
+                    # Inject thread_id into tool call via system context
+                    result = chatbot.invoke(
+                        {"messages": [HumanMessage(content=question)]},
+                        config=config,
                     )
-
-                # ── Show retrieved chunks so user can verify against answer ──
-                chunks = st.session_state.rag.get_last_chunks()
-                with st.expander(f"🔍 View retrieved context ({len(chunks)} chunk(s)) — verify for hallucination"):
-                    for i, chunk in enumerate(chunks, 1):
-                        st.markdown(f"""
-<div style="
-    background: rgba(255,255,255,0.04);
-    border-left: 3px solid #7c3aed;
-    border-radius: 8px;
-    padding: 0.9rem 1.1rem;
-    margin-bottom: 0.8rem;
-    font-size: 1rem;
-    color: #e2e8f0;
-    line-height: 1.7;
-">
-<span style="color:#a78bfa;font-weight:700;font-size:0.85rem;">
-    CHUNK {i} &nbsp;·&nbsp; Page {chunk['page']}
-</span><br><br>
-{chunk['content']}
-</div>
-""", unsafe_allow_html=True)
+                    raw_content = result["messages"][-1].content
+                    if isinstance(raw_content, list):
+                        answer = "".join(
+                            block["text"] for block in raw_content if isinstance(block, dict) and "text" in block
+                        )
+                    else:
+                        answer = raw_content
 
                 st.session_state.chat_history.append({
                     "question": question,
-                    "answer": answer
+                    "answer": answer,
                 })
                 st.rerun()
     else:
@@ -375,6 +366,6 @@ with right:
 # ─── Footer ──────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="footer">
-    Built with ❤️ using Streamlit · Gemini 1.5 Flash · FAISS · Google AI
+    Built with ❤️ using Streamlit · Gemini 2.5 Flash · FAISS · LangGraph
 </div>
 """, unsafe_allow_html=True)

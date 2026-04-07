@@ -1,119 +1,234 @@
+from __future__ import annotations
+
+import os
+import sqlite3
 import tempfile
-from langchain_community.document_loaders import PDFPlumberLoader
+import time
+from typing import Annotated, Any, Dict, List, Optional, TypedDict
+
+
+from dotenv import load_dotenv
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.vectorstores import FAISS
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_core.messages import BaseMessage, SystemMessage
+from langchain_core.tools import tool
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_huggingface import HuggingFaceEndpointEmbeddings
+from langgraph.checkpoint.sqlite import SqliteSaver  # requires: pip install langgraph-checkpoint-sqlite
+from langgraph.graph import START, StateGraph
+from langgraph.graph.message import add_messages
+from langgraph.prebuilt import ToolNode, tools_condition
 
 
-# ── Cached embeddings — loaded once per session ───────────────────────────────
-_embeddings_cache = None
+load_dotenv()
 
-def get_embeddings(api_key: str):
-    global _embeddings_cache
-    if _embeddings_cache is None:
-        _embeddings_cache = GoogleGenerativeAIEmbeddings(
-            model="models/embedding-001",
-            google_api_key=api_key,
-        )
-    return _embeddings_cache
+# langchain_google_genai needs GOOGLE_API_KEY; support GEMINI_API_KEY as alias
+if not os.getenv("GOOGLE_API_KEY") and os.getenv("GEMINI_API_KEY"):
+    os.environ["GOOGLE_API_KEY"] = os.environ["GEMINI_API_KEY"]
+
+# -------------------
+# 1. LLM + embeddings
+# -------------------
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
+embeddings = HuggingFaceEndpointEmbeddings(
+    huggingfacehub_api_token=os.environ.get("HF_TOKEN"),
+    model="sentence-transformers/all-MiniLM-L6-v2"
+)
+
+# -------------------
+# 2. PDF retriever store (per thread)
+# -------------------
+_THREAD_RETRIEVERS: Dict[str, Any] = {}
+_THREAD_METADATA: Dict[str, dict] = {}
 
 
-# ── Strict system prompt ───────────────────────────────────────────────────────
-SYSTEM_PROMPT = """You are a document Q&A assistant. Your ONLY job is to answer questions using the provided document excerpts.
+def _get_retriever(thread_id: Optional[str]):
+    """Fetch the retriever for a thread if available."""
+    if thread_id and thread_id in _THREAD_RETRIEVERS:
+        return _THREAD_RETRIEVERS[thread_id]
+    return None
 
-STRICT RULES — follow these absolutely:
-1. Answer ONLY from the DOCUMENT CONTEXT provided. Do NOT use your training knowledge.
-2. Do NOT invent, assume, or infer anything not explicitly stated in the context.
-3. Do NOT mention any names, titles, authors, dates, or facts unless they appear verbatim in the context.
-4. If the context does not contain the answer, say EXACTLY: "This information is not present in the document."
-5. Never say things like "based on my knowledge" or "typically" — stick to the document only.
-6. Find out what the document is about. If the user asks "what is this document about?", check the index part if it is unavailable then fetch all headings and subheadings and find out about them and send user a concise summary of the document.
-7. Extract basic information about the whole document and persist the information in the session state."""
 
-class RAGChatbot:
+def _embed_with_retry(texts: List[str], batch_size: int = 50, max_retries: int = 5) -> List[List[float]]:
+    """Embed text in batches with exponential backoff on 429 rate-limit errors."""
+    all_embeddings: List[List[float]] = []
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i : i + batch_size]
+        wait = 2
+        for attempt in range(max_retries):
+            try:
+                all_embeddings.extend(embeddings.embed_documents(batch))
+                break
+            except Exception as e:
+                # Inference API might return 503 while loading or 429 for rate limit. Try backing off.
+                if attempt < max_retries - 1:
+                    time.sleep(wait)
+                    wait *= 2  # exponential backoff
+                else:
+                    raise
+        # Small pause between batches to avoid burst rate limit
+        if i + batch_size < len(texts):
+            time.sleep(1)
+    return all_embeddings
 
-    def __init__(self, api_key: str):
-        self.llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
-            google_api_key=api_key,
-            temperature=0.0,
-            max_output_tokens=1024,
-        )
-        self.embeddings = get_embeddings(api_key)
-        self.last_retrieved_docs = []
 
-    def load_pdf(self, uploaded_file):
-        """Extract text from uploaded PDF."""
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            tmp.write(uploaded_file.read())
-            pdf_path = tmp.name
+def ingest_pdf(file_bytes: bytes, thread_id: str, filename: Optional[str] = None) -> dict:
+    """
+    Build a FAISS retriever for the uploaded PDF and store it for the thread.
 
-        loader = PDFPlumberLoader(pdf_path)
-        documents = loader.load()
+    Returns a summary dict that can be surfaced in the UI.
+    """
+    if not file_bytes:
+        raise ValueError("No bytes received for ingestion.")
 
-        if len(documents) == 0:
-            raise ValueError("PDF extraction failed — file may be scanned.")
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
+        temp_file.write(file_bytes)
+        temp_path = temp_file.name
 
-        return documents
+    try:
+        loader = PyPDFLoader(temp_path)
+        docs = loader.load()
 
-    def create_rag_pipeline(self, documents):
-        """Build FAISS vector DB + document retriever."""
         splitter = RecursiveCharacterTextSplitter(
-            chunk_size=600,
-            chunk_overlap=100,
+            chunk_size=1500, chunk_overlap=150, separators=["\n\n", "\n", " ", ""]
         )
-        chunks = splitter.split_documents(documents)
+        chunks = splitter.split_documents(docs)
+        texts = [c.page_content for c in chunks]
+        metadatas = [c.metadata for c in chunks]
 
-        if not chunks:
-            raise ValueError("No text chunks found. Try a different PDF.")
+        # Embed with retry/backoff to handle free-tier 429 rate limits
+        chunk_embeddings = _embed_with_retry(texts)
 
-        vector_store = FAISS.from_documents(chunks, self.embeddings)
-        self.retriever = vector_store.as_retriever(
-            search_type="similarity",
-            search_kwargs={"k": 4}
+        vector_store = FAISS.from_embeddings(
+            text_embeddings=list(zip(texts, chunk_embeddings)),
+            embedding=embeddings,
+            metadatas=metadatas,
         )
-        return True
+        retriever = vector_store.as_retriever(
+            search_type="similarity", search_kwargs={"k": 4}
+        )
 
-    def _build_prompt(self, question: str, context: str) -> str:
-        """Build a single combined prompt string for Gemini."""
-        return f"""{SYSTEM_PROMPT}
+        _THREAD_RETRIEVERS[str(thread_id)] = retriever
+        _THREAD_METADATA[str(thread_id)] = {
+            "filename": filename or os.path.basename(temp_path),
+            "documents": len(docs),
+            "chunks": len(chunks),
+        }
 
-DOCUMENT CONTEXT:
----
-{context}
----
+        return {
+            "filename": filename or os.path.basename(temp_path),
+            "documents": len(docs),
+            "chunks": len(chunks),
+        }
+    finally:
+        try:
+            os.remove(temp_path)
+        except OSError:
+            pass
 
-QUESTION: {question}
 
-Answer using ONLY the document context above. Do not use outside knowledge."""
+# -------------------
+# 3. Tools
+# -------------------
 
-    def ask(self, _pipeline, question):
-        """Non-streaming version."""
-        docs = self.retriever.get_relevant_documents(question)
-        self.last_retrieved_docs = docs
-        context = "\n\n".join([d.page_content for d in docs])
-        prompt = self._build_prompt(question, context)
-        response = self.llm.invoke(prompt)
-        return response.content
 
-    def ask_stream(self, _pipeline, question):
-        """Streaming version — yields tokens for live display."""
-        docs = self.retriever.get_relevant_documents(question)
-        self.last_retrieved_docs = docs
-        context = "\n\n".join([d.page_content for d in docs])
-        prompt = self._build_prompt(question, context)
 
-        for chunk in self.llm.stream(prompt):
-            if chunk.content:
-                yield chunk.content
 
-    def get_last_chunks(self):
-        """Return retrieved chunks for hallucination inspection panel."""
-        return [
-            {
-                "content": doc.page_content,
-                "source":  doc.metadata.get("source", "unknown"),
-                "page":    doc.metadata.get("page", "?"),
-            }
-            for doc in self.last_retrieved_docs
-        ]
+
+@tool
+def rag_tool(query: str, thread_id: Optional[str] = None) -> dict:
+    """
+    Retrieve relevant information from the uploaded PDF for this chat thread.
+    Always include the thread_id when calling this tool.
+    """
+    retriever = _get_retriever(thread_id)
+    if retriever is None:
+        return {
+            "error": "No document indexed for this chat. Upload a PDF first.",
+            "query": query,
+        }
+
+    result = retriever.invoke(query)
+    context = [doc.page_content for doc in result]
+    metadata = [doc.metadata for doc in result]
+
+    return {
+        "query": query,
+        "context": context,
+        "metadata": metadata,
+        "source_file": _THREAD_METADATA.get(str(thread_id), {}).get("filename"),
+    }
+
+
+tools = [rag_tool]
+llm_with_tools = llm.bind_tools(tools)
+
+# -------------------
+# 4. State
+# -------------------
+class ChatState(TypedDict):
+    messages: Annotated[list[BaseMessage], add_messages]
+
+
+# -------------------
+# 5. Nodes
+# -------------------
+def chat_node(state: ChatState, config=None):
+    """LLM node that may answer or request a tool call."""
+    thread_id = None
+    if config and isinstance(config, dict):
+        thread_id = config.get("configurable", {}).get("thread_id")
+
+    system_message = SystemMessage(
+        content=(
+            "You are a helpful assistant. For questions about the uploaded PDF, call "
+            "the `rag_tool` and include the thread_id "
+            f"`{thread_id}`. You can also use the web search, stock price, and "
+            "calculator tools when helpful. If no document is available, ask the user "
+            "to upload a PDF."
+        )
+    )
+
+    messages = [system_message, *state["messages"]]
+    response = llm_with_tools.invoke(messages, config=config)
+    return {"messages": [response]}
+
+
+tool_node = ToolNode(tools)
+
+# -------------------
+# 6. Checkpointer
+# -------------------
+conn = sqlite3.connect(database="chatbot.db", check_same_thread=False)
+checkpointer = SqliteSaver(conn=conn)
+
+# -------------------
+# 7. Graph
+# -------------------
+graph = StateGraph(ChatState)
+graph.add_node("chat_node", chat_node)
+graph.add_node("tools", tool_node)
+
+graph.add_edge(START, "chat_node")
+graph.add_conditional_edges("chat_node", tools_condition)
+graph.add_edge("tools", "chat_node")
+
+chatbot = graph.compile(checkpointer=checkpointer)
+
+# -------------------
+# 8. Helpers
+# -------------------
+def retrieve_all_threads():
+    all_threads = set()
+    for checkpoint in checkpointer.list(None):
+        all_threads.add(checkpoint.config["configurable"]["thread_id"])
+    return list(all_threads)
+
+
+def thread_has_document(thread_id: str) -> bool:
+    return str(thread_id) in _THREAD_RETRIEVERS
+
+
+def thread_document_metadata(thread_id: str) -> dict:
+    return _THREAD_METADATA.get(str(thread_id), {})
