@@ -135,7 +135,6 @@ def ingest_pdf(file_bytes: bytes, thread_id: str, filename: Optional[str] = None
 
 
 
-
 @tool
 def rag_tool(query: str, thread_id: Optional[str] = None) -> dict:
     """
