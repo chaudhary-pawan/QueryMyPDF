@@ -1,11 +1,27 @@
 streamlit
+
+# LangChain core & ecosystem
 langchain>=0.3
 langchain-core>=0.3
 langchain-community>=0.3
+langchain-text-splitters>=0.3
 langchain-google-genai>=2.0
+langchain-huggingface>=0.1
+
+# LangGraph + SQLite checkpointer
 langgraph
 langgraph-checkpoint-sqlite
+
+# Vector store & retrieval
 faiss-cpu
+rank-bm25
+
+# PDF loading
 pypdf
+
+# Google Generative AI SDK (used in embed_test.py)
+google-genai
+
+# Utilities
 python-dotenv
 requests
