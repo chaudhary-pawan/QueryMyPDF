@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.vectorstores import FAISS
+from langchain_community.retrievers import BM25Retriever
 from langchain_core.messages import BaseMessage, SystemMessage
 from langchain_core.tools import tool
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -105,11 +106,17 @@ def ingest_pdf(file_bytes: bytes, thread_id: str, filename: Optional[str] = None
             embedding=embeddings,
             metadatas=metadatas,
         )
-        retriever = vector_store.as_retriever(
-            search_type="similarity", search_kwargs={"k": 4}
+        faiss_retriever = vector_store.as_retriever(
+            search_type="similarity", search_kwargs={"k": 6}
         )
+        
+        bm25_retriever = BM25Retriever.from_texts(texts, metadatas=metadatas)
+        bm25_retriever.k = 6
 
-        _THREAD_RETRIEVERS[str(thread_id)] = retriever
+        _THREAD_RETRIEVERS[str(thread_id)] = {
+            "faiss": faiss_retriever,
+            "bm25": bm25_retriever
+        }
         _THREAD_METADATA[str(thread_id)] = {
             "filename": filename or os.path.basename(temp_path),
             "documents": len(docs),
@@ -141,16 +148,30 @@ def rag_tool(query: str, thread_id: Optional[str] = None) -> dict:
     Retrieve relevant information from the uploaded PDF for this chat thread.
     Always include the thread_id when calling this tool.
     """
-    retriever = _get_retriever(thread_id)
-    if retriever is None:
+    retrievers = _get_retriever(thread_id)
+    if retrievers is None:
         return {
             "error": "No document indexed for this chat. Upload a PDF first.",
             "query": query,
         }
 
-    result = retriever.invoke(query)
-    context = [doc.page_content for doc in result]
-    metadata = [doc.metadata for doc in result]
+    # Query both retrievers
+    faiss_docs = retrievers["faiss"].invoke(query)
+    bm25_docs = retrievers["bm25"].invoke(query)
+
+    # Combine and deduplicate based on content
+    all_docs = []
+    seen = set()
+    for doc in (bm25_docs + faiss_docs):
+        if doc.page_content not in seen:
+            all_docs.append(doc)
+            seen.add(doc.page_content)
+            
+    # Take top 8 combined results
+    all_docs = all_docs[:8]
+
+    context = [doc.page_content for doc in all_docs]
+    metadata = [doc.metadata for doc in all_docs]
 
     return {
         "query": query,
