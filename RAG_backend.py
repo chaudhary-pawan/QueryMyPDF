@@ -5,6 +5,7 @@ import sqlite3
 import tempfile
 import time
 from typing import Annotated, Any, Dict, List, Optional, TypedDict
+import streamlit as st
 
 
 from dotenv import load_dotenv
@@ -29,13 +30,21 @@ if not os.getenv("GOOGLE_API_KEY") and os.getenv("GEMINI_API_KEY"):
     os.environ["GOOGLE_API_KEY"] = os.environ["GEMINI_API_KEY"]
 
 # -------------------
-# 1. LLM + embeddings
+# 1. LLM + embeddings  (cached so they're built only ONCE per server lifetime)
 # -------------------
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
-embeddings = HuggingFaceEndpointEmbeddings(
-    huggingfacehub_api_token=os.environ.get("HF_TOKEN"),
-    model="sentence-transformers/all-MiniLM-L6-v2"
-)
+@st.cache_resource(show_spinner=False)
+def _load_llm():
+    return ChatGoogleGenerativeAI(model="gemini-2.5-flash")
+
+@st.cache_resource(show_spinner=False)
+def _load_embeddings():
+    return HuggingFaceEndpointEmbeddings(
+        huggingfacehub_api_token=os.environ.get("HF_TOKEN"),
+        model="sentence-transformers/all-MiniLM-L6-v2"
+    )
+
+llm = _load_llm()
+embeddings = _load_embeddings()
 
 # -------------------
 # 2. PDF retriever store (per thread)
@@ -218,23 +227,24 @@ def chat_node(state: ChatState, config=None):
 tool_node = ToolNode(tools)
 
 # -------------------
-# 6. Checkpointer
+# 6. Checkpointer + 7. Graph  (cached so the graph is compiled only ONCE)
 # -------------------
-conn = sqlite3.connect(database="chatbot.db", check_same_thread=False)
-checkpointer = SqliteSaver(conn=conn)
+@st.cache_resource(show_spinner=False)
+def _build_chatbot():
+    conn = sqlite3.connect(database="chatbot.db", check_same_thread=False)
+    checkpointer = SqliteSaver(conn=conn)
 
-# -------------------
-# 7. Graph
-# -------------------
-graph = StateGraph(ChatState)
-graph.add_node("chat_node", chat_node)
-graph.add_node("tools", tool_node)
+    graph = StateGraph(ChatState)
+    graph.add_node("chat_node", chat_node)
+    graph.add_node("tools", tool_node)
 
-graph.add_edge(START, "chat_node")
-graph.add_conditional_edges("chat_node", tools_condition)
-graph.add_edge("tools", "chat_node")
+    graph.add_edge(START, "chat_node")
+    graph.add_conditional_edges("chat_node", tools_condition)
+    graph.add_edge("tools", "chat_node")
 
-chatbot = graph.compile(checkpointer=checkpointer)
+    return graph.compile(checkpointer=checkpointer)
+
+chatbot = _build_chatbot()
 
 # -------------------
 # 8. Helpers

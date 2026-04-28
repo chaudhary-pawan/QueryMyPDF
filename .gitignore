@@ -52,3 +52,6 @@ logs/
 # FAISS / vector store indexes (regenerate from PDFs)
 *.faiss
 *.index
+
+# SQLite checkpoint (ephemeral, regenerated at runtime)
+chatbot.db
