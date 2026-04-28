@@ -1,7 +1,7 @@
 {
-  "buildCommand": null,
-  "outputDirectory": null,
+  "version": 2,
   "framework": null,
+  "buildCommand": null,
   "installCommand": null,
-  "ignoreCommand": "echo 'This is a Streamlit app hosted on Render — skipping Vercel build.' && exit 0"
+  "outputDirectory": "public"
 }
