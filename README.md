@@ -170,50 +170,12 @@ QueryMyPDF/
 - Python 3.10+
 - A **Google Gemini API key** — get one free at [aistudio.google.com](https://aistudio.google.com/)
 - A **HuggingFace token** (free) — generate one at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+---
+### Want to test the product ?
 
-### Installation
-
-**1. Clone the repository**
-
-```bash
-git clone https://github.com/chaudhary-pawan/querymypdf.git
-cd querymypdf
+``` Browser
+Visit - https://querymypdf.onrender.com/
 ```
-
-**2. Create and activate a virtual environment**
-
-```bash
-python -m venv venv
-# macOS / Linux
-source venv/bin/activate
-# Windows
-venv\Scripts\activate
-```
-
-**3. Install dependencies**
-
-```bash
-pip install -r requirements.txt
-```
-
-**4. Configure environment variables**
-
-Create a `.env` file in the project root:
-
-```env
-GOOGLE_API_KEY=your_google_gemini_api_key_here
-HF_TOKEN=your_huggingface_token_here
-```
-
-> **Note:** `GEMINI_API_KEY` is also accepted as an alias for `GOOGLE_API_KEY`.
-
-**5. Run the app**
-
-```bash
-streamlit run APP.py
-```
-
-Open [http://localhost:8501](http://localhost:8501) in your browser.
 
 ---
 
@@ -302,5 +264,5 @@ GitHub: [@chaudhary-pawan](https://github.com/chaudhary-pawan)
 ---
 
 <div align="center">
-Made with ❤️ using Streamlit · LangGraph · Gemini · FAISS
+Made by Pawan using Streamlit · LangGraph · Gemini · FAISS
 </div>
