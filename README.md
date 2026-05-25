@@ -150,16 +150,23 @@ QueryMyPDF/
 
 ## 📸 Screenshots
 
+### Open the application
+| Visit | Screenshot |
+|-------|------------|
+| QueryMyPDF | ![Open App](assets/res1 (1).png) |
+
 ### 📂 PDF Upload & Indexing
 | Upload | Indexing Complete |
 |--------|-------------------|
-| ![PDF Upload](assets/PDF_loader.png) | ![PDF Upload 2](assets/PDF_loader2.png) |
+| ![PDF Upload](assets/res1 (2).png) | 
 
-### 💬 AI Chat & Source References
-| AI Response | Source Context |
-|-------------|----------------|
-| ![Response](assets/response.png) | ![Source](assets/source_doc.png) |
-| ![Response 2](assets/response1.png) | ![Source 2](assets/source_doc1.png) |
+### 💬 Build Knowledge base
+
+| ![Knowledge Base](assets/res1 (3).png) |
+
+### Chat
+
+| ![Chat](assets/res1 (4).png) | (assets/res1 (5).png) |
 
 ---
 
