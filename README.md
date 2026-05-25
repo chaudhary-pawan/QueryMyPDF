@@ -153,17 +153,17 @@ QueryMyPDF/
 ### Open the application
 | Visit | Screenshot |
 |-------|------------|
-| [QueryMyPDF](https://querymypdf.onrender.com/) | ![Open App](assets/res1_1.png) |
+| [QueryMyPDF](https://querymypdf.onrender.com/) | ![Open App](assets/res1_5.png) |
 
 ### 📂 PDF Upload & Indexing
-![PDF Upload](assets/res1_2.png)
+![PDF Upload](assets/res1_4.png)
 
 ### 💬 Build Knowledge base
 ![Knowledge Base](assets/res1_3.png)
 
 ### 💬 Chat
-![Chat Part 1](assets/res1_4.png)
-![Chat Part 2](assets/res1_5.png)
+![Chat Part 1](assets/res1_2.png)
+![Chat Part 2](assets/res1_1.png)
 
 ---
 
