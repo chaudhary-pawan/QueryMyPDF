@@ -26,7 +26,24 @@ html, body, [class*="css"] {
     font-family: 'Inter', sans-serif !important;
     background-color: #08081a !important;
 }
-#MainMenu, footer, header { display: none !important; }
+
+#MainMenu, footer { display: none !important; }
+header { background: transparent !important; }
+[data-testid="stHeader"] {
+    background: transparent !important;
+    z-index: 99999 !important;
+}
+[data-testid="stHeader"] [data-testid="stSidebarCollapseButton"],
+[data-testid="stHeader"] [data-testid="collapsedControl"],
+[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapseButton"] {
+    background: rgba(15, 23, 42, 0.8) !important;
+    backdrop-filter: blur(16px) !important;
+    border: 1px solid rgba(139, 92, 246, 0.3) !important;
+    border-radius: 10px !important;
+    color: #e2e8f0 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
 
 .stApp {
     background: #08081a !important;
@@ -84,6 +101,7 @@ html, body, [class*="css"] {
     font-family: 'Outfit', sans-serif !important; font-weight: 600 !important;
     font-size: 0.88rem !important; transition: all 0.25s !important;
     box-shadow: 0 4px 20px rgba(109,40,217,0.35) !important; width: 100% !important;
+    min-height: 42px !important;
 }
 .stButton > button:hover {
     transform: translateY(-2px) scale(1.01) !important;
@@ -97,6 +115,7 @@ html, body, [class*="css"] {
     color: #f87171 !important; border-radius: 14px !important;
     padding: 0.6rem 0.9rem !important; font-size: 1.0rem !important;
     font-weight: 400 !important; box-shadow: none !important; width: auto !important;
+    min-height: 48px !important;
 }
 .stop-col .stButton > button:hover {
     background: rgba(239,68,68,0.14) !important;
@@ -120,6 +139,7 @@ html, body, [class*="css"] {
     color: #fff; padding: 0.85rem 1.2rem;
     border-radius: 18px 18px 4px 18px; font-size: 0.92rem;
     line-height: 1.6; box-shadow: 0 6px 24px rgba(109,40,217,0.3);
+    word-break: break-word;
 }
 .bubble-ai {
     max-width: 78%; background: rgba(255,255,255,0.04);
@@ -127,12 +147,20 @@ html, body, [class*="css"] {
     padding: 1rem 1.3rem; border-radius: 18px 18px 18px 4px;
     font-size: 0.92rem; line-height: 1.75;
     backdrop-filter: blur(10px); box-shadow: 0 6px 30px rgba(0,0,0,0.35);
+    word-break: break-word;
+}
+.bubble-ai pre, .bubble-ai code, .bubble-user pre, .bubble-user code {
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
 }
 .bubble-err {
     max-width: 78%; background: rgba(239,68,68,0.07);
     border: 1px solid rgba(239,68,68,0.22); color: #fca5a5;
     padding: 0.9rem 1.2rem; border-radius: 18px 18px 18px 4px;
     font-size: 0.89rem; line-height: 1.6;
+    word-break: break-word;
 }
 .lbl { font-family:'Outfit',sans-serif; font-size:0.62rem; font-weight:700;
     letter-spacing:0.12em; text-transform:uppercase; opacity:0.6; margin-bottom:0.3rem; }
@@ -202,6 +230,75 @@ html, body, [class*="css"] {
 
 hr { border-color: rgba(255,255,255,0.05) !important; }
 .block-container { padding: 1rem 2rem 0 2rem !important; max-width: 100% !important; }
+
+/* ── Mobile & Tablet Responsiveness ── */
+@media (max-width: 768px) {
+    .block-container {
+        padding: 0.5rem 0.6rem 0 0.6rem !important;
+    }
+    .top-header {
+        padding: 0.4rem 0 0.4rem !important;
+    }
+    .empty-chat {
+        padding: 2.2rem 0.5rem !important;
+    }
+    .empty-icon {
+        font-size: 2.2rem !important;
+        margin-bottom: 0.6rem !important;
+    }
+    .empty-title {
+        font-size: 1.35rem !important;
+    }
+    .empty-sub {
+        font-size: 0.82rem !important;
+    }
+    .bubble-user {
+        max-width: 88% !important;
+        padding: 0.75rem 1rem !important;
+        font-size: 0.88rem !important;
+    }
+    .bubble-ai, .bubble-err {
+        max-width: 92% !important;
+        padding: 0.85rem 1rem !important;
+        font-size: 0.88rem !important;
+    }
+    [data-testid="stChatInput"] textarea {
+        font-size: 16px !important; /* Prevents auto-zoom on mobile safari/chrome */
+        padding: 0.85rem 1.1rem !important;
+        min-height: 48px !important;
+    }
+    .stButton > button {
+        min-height: 44px !important; /* Touch target minimum height */
+    }
+    [data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 0.4rem !important;
+        flex-wrap: nowrap !important;
+    }
+    [data-testid="stColumn"]:first-child {
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+    }
+    [data-testid="stColumn"]:last-child {
+        flex: 0 0 auto !important;
+        width: auto !important;
+    }
+    .stop-col .stButton > button {
+        padding: 0.5rem 0.8rem !important;
+        height: 48px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+}
+
+@media (max-height: 700px) {
+    .empty-chat {
+        padding: 1.5rem 0.5rem !important;
+    }
+}
 </style>
 """, unsafe_allow_html=True)
 
