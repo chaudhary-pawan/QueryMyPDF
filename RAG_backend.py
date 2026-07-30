@@ -29,6 +29,12 @@ load_dotenv()
 if not os.getenv("GOOGLE_API_KEY") and os.getenv("GEMINI_API_KEY"):
     os.environ["GOOGLE_API_KEY"] = os.environ["GEMINI_API_KEY"]
 
+# LangSmith default configuration
+if not os.getenv("LANGCHAIN_PROJECT"):
+    os.environ["LANGCHAIN_PROJECT"] = "QueryMyPDF"
+if not os.getenv("LANGCHAIN_ENDPOINT"):
+    os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
+
 # -------------------
 # 1. LLM + embeddings  (cached so they're built only ONCE per server lifetime)
 # -------------------
@@ -262,3 +268,23 @@ def thread_has_document(thread_id: str) -> bool:
 
 def thread_document_metadata(thread_id: str) -> dict:
     return _THREAD_METADATA.get(str(thread_id), {})
+
+
+def is_langsmith_active() -> bool:
+    """Check if LangSmith tracing is currently enabled with an API key."""
+    tracing = os.getenv("LANGCHAIN_TRACING_V2", "").lower() in ("true", "1")
+    api_key = os.getenv("LANGCHAIN_API_KEY", "").strip()
+    return tracing and bool(api_key)
+
+
+def update_langsmith_credentials(api_key: str, project: str = "QueryMyPDF", enabled: bool = True):
+    """Update active environment variables for LangSmith tracing dynamically."""
+    if enabled:
+        os.environ["LANGCHAIN_TRACING_V2"] = "true"
+    else:
+        os.environ["LANGCHAIN_TRACING_V2"] = "false"
+
+    if api_key:
+        os.environ["LANGCHAIN_API_KEY"] = api_key.strip()
+    if project:
+        os.environ["LANGCHAIN_PROJECT"] = project.strip()
