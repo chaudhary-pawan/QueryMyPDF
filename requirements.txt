@@ -11,6 +11,7 @@ langchain-huggingface>=0.1
 # LangGraph + SQLite checkpointer
 langgraph
 langgraph-checkpoint-sqlite
+langsmith
 
 # Vector store & retrieval
 faiss-cpu
