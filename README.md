@@ -7,6 +7,7 @@
 ![LangGraph](https://img.shields.io/badge/Agent-LangGraph-6d28d9)
 ![Gemini](https://img.shields.io/badge/LLM-Gemini%202.5%20Flash-4285F4?logo=google&logoColor=white)
 ![FAISS](https://img.shields.io/badge/Vector%20DB-FAISS-009688)
+![LangSmith](https://img.shields.io/badge/Observability-LangSmith-FF6F00?logo=langchain&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 **Upload any PDF. Ask anything. Get instant, context-aware AI answers.**
@@ -33,6 +34,7 @@ The app ships with a fully custom dark-themed Streamlit UI (glassmorphism design
 - **HuggingFace Embeddings** — `sentence-transformers/all-MiniLM-L6-v2` for fast, high-quality sentence embeddings (free tier friendly)
 - **LangGraph Agentic Loop** — the chatbot is a proper **tool-calling agent** (not a simple chain): it decides *when* to call the RAG tool and can handle conversational turns without unnecessary retrieval
 - **Persistent Conversation Memory** — `SqliteSaver` checkpointer persists the full message graph per session, surviving page re-runs
+- **LangSmith Tracing & Observability** — end-to-end tracing for LLM prompts/responses, retriever tool calls, token usage, latency, and agent state transitions
 
 ### 📄 Document Handling
 - Upload any PDF via the sidebar
@@ -194,6 +196,27 @@ Visit - https://querymypdf.onrender.com/
 
 ---
 
+## 🔍 LangSmith Observability & Tracing
+
+QueryMyPDF includes built-in support for **LangSmith** to provide full transparency into your AI pipeline:
+
+- **Trace LLM Calls** — view full inputs, system prompts, token consumption, and model latency for Gemini 2.5 Flash
+- **Trace Tool Executions** — inspect exact queries passed to `rag_tool` and retrieved document chunks
+- **Monitor LangGraph Agent State** — track node transitions (`chat_node` ↔ `tools`) and state updates
+
+### Enabling LangSmith
+
+1. Sign up for a free account at [smith.langchain.com](https://smith.langchain.com/) and copy your **API Key**.
+2. Either add your credentials to `.env`:
+   ```env
+   LANGCHAIN_TRACING_V2=true
+   LANGCHAIN_API_KEY=lsv2_pt_...
+   LANGCHAIN_PROJECT=QueryMyPDF
+   ```
+3. Or configure it directly in the app UI via the **🔍 Observability** expander in the sidebar!
+
+---
+
 ## 🔑 Environment Variables
 
 | Variable | Required | Description |
@@ -201,6 +224,9 @@ Visit - https://querymypdf.onrender.com/
 | `GOOGLE_API_KEY` | ✅ Yes | Google Gemini API key |
 | `GEMINI_API_KEY` | Optional | Alias for `GOOGLE_API_KEY` |
 | `HF_TOKEN` | ✅ Yes | HuggingFace API token for embeddings |
+| `LANGCHAIN_TRACING_V2` | Optional | Set to `true` to enable LangSmith tracing |
+| `LANGCHAIN_API_KEY` | Optional | LangSmith API key (from smith.langchain.com) |
+| `LANGCHAIN_PROJECT` | Optional | LangSmith project name (defaults to `QueryMyPDF`) |
 
 ---
 
