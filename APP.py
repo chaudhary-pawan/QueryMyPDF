@@ -311,7 +311,11 @@ if "pdf_meta"     not in st.session_state: st.session_state.pdf_meta     = {}
 if "stop_stream"  not in st.session_state: st.session_state.stop_stream  = False
 
 thread_id = st.session_state.thread_id
-config    = {"configurable": {"thread_id": thread_id}}
+config = {
+    "configurable": {"thread_id": thread_id},
+    "tags": ["QueryMyPDF", "LangGraph-RAG"],
+    "metadata": {"thread_id": thread_id, "application": "QueryMyPDF"},
+}
 
 
 # ─── Sidebar ─────────────────────────────────────────────────────────────────
